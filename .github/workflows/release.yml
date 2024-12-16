@@ -31,7 +31,6 @@ jobs:
         id: build-images
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ inputs.release_version }}  # Using your release version input
         run: |
           # Define repositories and their Dockerfile locations
           declare -A REPOSITORIES=(
