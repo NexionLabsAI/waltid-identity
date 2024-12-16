@@ -1,4 +1,5 @@
 name: Release Build
+
 on:
   release:
     types: [created]
@@ -8,20 +9,12 @@ jobs:
     name: "Release"
     runs-on: ubuntu-latest
     env:
-      IMAGE_TAG: ${{ inputs.release_version }}
+      IMAGE_TAG: ${{ github.event.release.tag_name }}  # Changed to use release tag
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-          docker-images: false
       - uses: actions/checkout@v3
       - name: Set version
         run: |
-          sed -i "s/1.0.0-SNAPSHOT/${{ inputs.release_version }}/g" build.gradle.kts
-      - run: |
-          git tag v${{ inputs.release_version }}
-          git push --tags
+          sed -i "s/1.0.0-SNAPSHOT/${{ github.event.release.tag_name }}/g" build.gradle.kts
       - name: Setup cache
         uses: actions/cache@v4
         with:
@@ -72,4 +65,3 @@ jobs:
             docker push $ECR_REGISTRY/$repo:$IMAGE_TAG
             echo "::set-output name=image_$repo::$ECR_REGISTRY/$repo:$IMAGE_TAG"
           done
-
