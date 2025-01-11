@@ -55,7 +55,6 @@
     <div id="qr-container"></div>
     <div id="status"></div>
 </div>
-
 <script>
     class VerificationClient {
         constructor(apiBaseUrl) {
@@ -165,20 +164,97 @@
         qrContainer.appendChild(copyButton);
     }
 
+    class WalletClient {
+        constructor(apiBaseUrl) {
+            this.apiBaseUrl = apiBaseUrl;
+        }
+
+        async login(username, password) {
+            const response = await fetch(`${this.apiBaseUrl}/api/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (!response.ok) {
+                throw new Error('Login failed');
+            }
+
+            return response.json();
+        }
+
+        async getDids(token) {
+            const response = await fetch(`${this.apiBaseUrl}/api/did/list`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to retrieve DIDs');
+            }
+
+            return response.json();
+        }
+
+        async presentCredential(token, presentationUrl) {
+            const response = await fetch(`${this.apiBaseUrl}/api/wallet/present`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    presentationUrl: presentationUrl
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to present credential');
+            }
+
+            return response.json();
+        }
+    }
+
+    // Usage example - add this to your existing code
+    async function completeVerificationWithWallet(presentationUrl) {
+        const walletClient = new WalletClient('http://localhost:7001');
+
+        try {
+            // Login to wallet
+            const authResponse = await walletClient.login('your-username', 'your-password');
+            const token = authResponse.token;
+
+            // Get DIDs
+            const dids = await walletClient.getDids(token);
+
+            if (dids && dids.length > 0) {
+                // Present credential using the first DID
+                const presentationResponse = await walletClient.presentCredential(token, presentationUrl);
+                return presentationResponse;
+            } else {
+                throw new Error('No DIDs found in wallet');
+            }
+        } catch (error) {
+            console.error('Wallet verification failed:', error);
+            throw error;
+        }
+    }
+
+    // Modify the existing initiateAgeVerification function to include wallet integration
     async function initiateAgeVerification() {
         try {
-            // Clear previous status and show loading state
             updateStatus('Initiating verification...');
-
-            // Create verification request
             const { verificationUrl, requestId } = await client.requestVerification();
 
-            // Generate QR code
-            generateQRCode(verificationUrl);
+            // Instead of showing QR code, use wallet directly
+            await completeVerificationWithWallet(verificationUrl);
+            updateStatus('Verification request sent through wallet');
 
-            updateStatus('Scan the QR code with your digital wallet');
-
-            // Start polling for result
+            // Continue with existing polling logic
             const pollInterval = setInterval(async () => {
                 try {
                     const status = await client.checkVerificationStatus(requestId);
@@ -195,11 +271,11 @@
                     updateStatus('Error checking verification status: ' + error.message, true);
                 }
             }, 2000);
-
         } catch (error) {
             updateStatus('Verification process failed: ' + error.message, true);
         }
     }
+</script>
 </script>
 </body>
 </html>
