@@ -34,9 +34,9 @@ jobs:
         run: |
           # Define repositories and their Dockerfile locations
           declare -A REPOSITORIES=(
-            ["waltid-issuer-api"]="waltid-services/waltid-issuer-api/Dockerfile"
-            ["waltid-wallet-api"]="waltid-services/waltid-wallet-api/Dockerfile"
-            ["waltid-verifier-api"]="waltid-services/waltid-verifier-api/Dockerfile"
+#            ["waltid-issuer-api"]="waltid-services/waltid-issuer-api/Dockerfile"
+#            ["waltid-wallet-api"]="waltid-services/waltid-wallet-api/Dockerfile"
+#            ["waltid-verifier-api"]="waltid-services/waltid-verifier-api/Dockerfile"
             ["waltid-demo-wallet"]="waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/Dockerfile"
             ["waltid-web-portal"]="waltid-applications/waltid-web-portal/Dockerfile"
           )
@@ -48,5 +48,5 @@ jobs:
             docker build -t $ECR_REGISTRY/$repo:$IMAGE_TAG  -f ${REPOSITORIES[$repo]} .
             # Push both tags
             docker push $ECR_REGISTRY/$repo:$IMAGE_TAG
-            echo "::set-output name=image_$repo::$ECR_REGISTRY/$repo:$IMAGE_TAG"
+            echo "image_$repo=$ECR_REGISTRY/$repo:$IMAGE_TAG" >> $GITHUB_OUTPUT
           done
