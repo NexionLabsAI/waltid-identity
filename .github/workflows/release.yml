@@ -34,9 +34,6 @@ jobs:
         run: |
           # Define repositories and their Dockerfile locations
           declare -A REPOSITORIES=(
-#            ["waltid-issuer-api"]="waltid-services/waltid-issuer-api/Dockerfile"
-#            ["waltid-wallet-api"]="waltid-services/waltid-wallet-api/Dockerfile"
-#            ["waltid-verifier-api"]="waltid-services/waltid-verifier-api/Dockerfile"
             ["waltid-demo-wallet"]="waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/Dockerfile"
             ["waltid-web-portal"]="waltid-applications/waltid-web-portal/Dockerfile"
           )
