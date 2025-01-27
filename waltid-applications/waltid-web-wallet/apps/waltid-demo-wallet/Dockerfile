@@ -1,5 +1,12 @@
 FROM gplane/pnpm:9.6 AS base
 
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # install dependencies & build
