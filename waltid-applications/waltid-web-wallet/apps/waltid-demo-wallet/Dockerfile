@@ -5,13 +5,19 @@ WORKDIR /app
 # install dependencies & build
 FROM base AS prerelease
 
+# Copy workspace config first
 COPY waltid-applications/waltid-web-wallet/package.json ./
+COPY waltid-applications/waltid-web-wallet/pnpm-workspace.yaml ./
+COPY waltid-applications/waltid-web-wallet/pnpm-lock.json ./
+
+# Create directory and copy app package.json
+RUN mkdir -p ./apps/waltid-demo-wallet
 COPY waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/package.json ./apps/waltid-demo-wallet/
 
-# Install only the required dependencies without better-sqlite3
-RUN cd apps/waltid-demo-wallet && pnpm install && \
-    pnpm add -D db0@0.1.4 @libsql/client@0.5.2 drizzle-orm@0.29.4
+# Install dependencies with workspace support
+RUN pnpm install --frozen-lockfile
 
+# Now copy all source files
 COPY waltid-applications/waltid-web-wallet .
 RUN cd apps/waltid-demo-wallet && pnpm run build
 
