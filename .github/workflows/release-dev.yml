@@ -1,0 +1,180 @@
+name: Automate Release Build
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    environment: development
+    outputs:
+      new_tag: ${{ steps.generate_tag.outputs.new_tag }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-role
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Generate new version
+        id: generate_tag
+        run: |
+          # Define all repository names
+          REPOS=("issuer" "verifier" "wallet-api" "waltid-demo-wallet" "waltid-web-portal")
+          LATEST_VERSION="0.0.0"
+          
+          # Find the highest version across all repositories
+          for repo in "${REPOS[@]}"; do
+            echo "Checking $repo repository..."
+          
+            # Get latest tag for current repository
+            CURRENT_TAG=$(aws ecr describe-images \
+              --repository-name $repo \
+              --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
+              --output text)
+          
+            # Skip if no tags found
+            if [ "$CURRENT_TAG" == "None" ]; then
+              continue
+            fi
+          
+            # Extract version number
+            CURRENT_VERSION=$(echo $CURRENT_TAG | sed 's/dev-v//')
+          
+            # Compare versions
+            if [ "$(printf '%s\n' "$LATEST_VERSION" "$CURRENT_VERSION" | sort -V | tail -n1)" = "$CURRENT_VERSION" ]; then
+              LATEST_VERSION=$CURRENT_VERSION
+              LATEST_TAG=$CURRENT_TAG
+            fi
+          done
+          
+          # If no tags found in any repository, start with 1.0.0
+          if [ "$LATEST_VERSION" == "0.0.0" ]; then
+            new_tag="dev-v1.0.0"
+          else
+            # Extract and increment version
+            major=$(echo $LATEST_VERSION | cut -d. -f1)
+            minor=$(echo $LATEST_VERSION | cut -d. -f2)
+            patch=$(echo $LATEST_VERSION | cut -d. -f3)
+            new_patch=$((patch + 1))
+            new_tag="dev-v${major}.${minor}.${new_patch}"
+          fi
+          
+          # Create and push new git tag
+          git tag $new_tag
+          git push origin $new_tag
+          
+          echo "New tag: $new_tag"
+          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
+
+  release:
+    needs: create-tag
+    name: "Release"
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      IMAGE_TAG: ${{ needs.create-tag.outputs.new_tag }}
+      ECS_CLUSTER: arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:cluster/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-role
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+
+      - name: Build and push images to Amazon ECR
+        id: build-images
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          declare -A SERVICES=(
+            ["issuer"]="IssuerContainer|NexionAiIacStackIssuerTaskDefinition4AF6EAF7|waltid-services/waltid-issuer-api/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
+            ["verifier"]="VerifierContainer|NexionAiIacStackVerifierTaskDefinition4228B84F|waltid-services/waltid-verifier-api/Dockerfile|NexionAiIacStack-VerifierServiceCD2CC6E9-UhMVd8ifZpvD"
+            ["wallet-api"]="WalletApiContainer|NexionAiIacStackWalletApiTaskDefinitionAD56EEDD|waltid-services/waltid-wallet-api/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
+            ["waltid-demo-wallet"]="WaltidDemoWalletContainer|NexionAiIacStackWaltidDemoWalletTaskDefinitionF3F49765|waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
+            ["waltid-web-portal"]="WaltidWebPortalContainer|NexionAiIacStackWaltidWebPortalTaskDefinitionCB8A832C|waltid-applications/waltid-web-portal/Dockerfile|NexionAiIacStack-WaltidWebPortaltService75F4E2F5-kZSulveJ6dvy"
+          )
+          
+          for service in "${!SERVICES[@]}"; do
+            IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
+            echo "Building and pushing $service..."
+            echo "Using Dockerfile: $dockerfile"
+            docker build -t $ECR_REGISTRY/$service:$IMAGE_TAG -f $dockerfile .
+            docker push $ECR_REGISTRY/$service:$IMAGE_TAG
+          done
+
+      - name: Update task definitions and services
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          declare -A SERVICES=(
+            ["issuer"]="IssuerContainer|NexionAiIacStackIssuerTaskDefinition4AF6EAF7|waltid-services/waltid-issuer-api/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
+            ["verifier"]="VerifierContainer|NexionAiIacStackVerifierTaskDefinition4228B84F|waltid-services/waltid-verifier-api/Dockerfile|NexionAiIacStack-VerifierServiceCD2CC6E9-UhMVd8ifZpvD"
+            ["wallet-api"]="WalletApiContainer|NexionAiIacStackWalletApiTaskDefinitionAD56EEDD|waltid-services/waltid-wallet-api/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
+            ["waltid-demo-wallet"]="WaltidDemoWalletContainer|NexionAiIacStackWaltidDemoWalletTaskDefinitionF3F49765|waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
+            ["waltid-web-portal"]="WaltidWebPortalContainer|NexionAiIacStackWaltidWebPortalTaskDefinitionCB8A832C|waltid-applications/waltid-web-portal/Dockerfile|NexionAiIacStack-WaltidWebPortaltService75F4E2F5-kZSulveJ6dvy"
+          )
+          
+          for service in "${!SERVICES[@]}"; do
+            IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
+          
+            echo "Updating task definition for $service..."
+            # Download task definition
+            aws ecs describe-task-definition --task-definition $task_def \
+              --query taskDefinition > task-definition-$service.json
+          
+            # Update task definition
+            jq --arg IMAGE "$ECR_REGISTRY/$service:$IMAGE_TAG" \
+               --arg NAME "$container_name" \
+               '{
+                  family: .family,
+                  taskRoleArn: .taskRoleArn,
+                  executionRoleArn: .executionRoleArn,
+                  networkMode: .networkMode,
+                  containerDefinitions: (.containerDefinitions | map(
+                    if .name == $NAME then . + {image: $IMAGE} else .
+                    end
+                  )),
+                  requiresCompatibilities: .requiresCompatibilities,
+                  cpu: .cpu,
+                  memory: .memory
+                }' \
+               task-definition-$service.json > updated-task-definition-$service.json
+          
+            # Register new task definition
+            echo "Registering new task definition for $service..."
+            NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+              --cli-input-json file://updated-task-definition-$service.json \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)
+          
+            # Update service
+            echo "Updating ECS service for $service..."
+            aws ecs update-service \
+              --cluster $ECS_CLUSTER \
+              --service "arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/$service_name" \
+              --task-definition $NEW_TASK_DEF_ARN \
+              --force-new-deployment
+          done
