@@ -7,15 +7,14 @@ FROM base AS prerelease
 
 # Copy workspace config first
 COPY waltid-applications/waltid-web-wallet/package.json ./
-COPY waltid-applications/waltid-web-wallet/pnpm-workspace.yaml ./
-COPY waltid-applications/waltid-web-wallet/pnpm-lock.json ./
+COPY waltid-applications/waltid-web-wallet/package-lock.json ./
 
 # Create directory and copy app package.json
 RUN mkdir -p ./apps/waltid-demo-wallet
 COPY waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/package.json ./apps/waltid-demo-wallet/
 
-# Install dependencies with workspace support
-RUN pnpm install --frozen-lockfile
+# Install dependencies
+RUN pnpm install
 
 # Now copy all source files
 COPY waltid-applications/waltid-web-wallet .
