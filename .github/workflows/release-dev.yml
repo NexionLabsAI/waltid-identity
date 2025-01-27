@@ -34,34 +34,34 @@ jobs:
         id: generate_tag
         run: |
           # Define all repository names
-          REPOS=("issuer" "verifier" "wallet-api" "waltid-demo-wallet" "waltid-web-portal")
+          REPOS=("waltid-issuer-api" "waltid-verifier-api" "waltid-wallet-api" "waltid-demo-wallet" "waltid-web-portal")
           LATEST_VERSION="0.0.0"
-          
+
           # Find the highest version across all repositories
           for repo in "${REPOS[@]}"; do
             echo "Checking $repo repository..."
-          
+
             # Get latest tag for current repository
             CURRENT_TAG=$(aws ecr describe-images \
               --repository-name $repo \
               --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
               --output text)
-          
+
             # Skip if no tags found
             if [ "$CURRENT_TAG" == "None" ]; then
               continue
             fi
-          
+
             # Extract version number
             CURRENT_VERSION=$(echo $CURRENT_TAG | sed 's/dev-v//')
-          
+
             # Compare versions
             if [ "$(printf '%s\n' "$LATEST_VERSION" "$CURRENT_VERSION" | sort -V | tail -n1)" = "$CURRENT_VERSION" ]; then
               LATEST_VERSION=$CURRENT_VERSION
               LATEST_TAG=$CURRENT_TAG
             fi
           done
-          
+
           # If no tags found in any repository, start with 1.0.0
           if [ "$LATEST_VERSION" == "0.0.0" ]; then
             new_tag="dev-v1.0.0"
@@ -73,11 +73,11 @@ jobs:
             new_patch=$((patch + 1))
             new_tag="dev-v${major}.${minor}.${new_patch}"
           fi
-          
+
           # Create and push new git tag
           git tag $new_tag
           git push origin $new_tag
-          
+
           echo "New tag: $new_tag"
           echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
 
