@@ -5,7 +5,7 @@ WORKDIR /app
 # install dependencies & build
 FROM base AS prerelease
 
-# Copy workspace config first
+# Copy root workspace files
 COPY waltid-applications/waltid-web-wallet/package.json ./
 COPY waltid-applications/waltid-web-wallet/package-lock.json ./
 
@@ -18,7 +18,11 @@ RUN pnpm install
 
 # Now copy all source files
 COPY waltid-applications/waltid-web-wallet .
-RUN cd apps/waltid-demo-wallet && pnpm run build
+
+# Ensure Nuxt dependencies are installed and build
+RUN cd apps/waltid-demo-wallet && \
+    pnpm install && \
+    pnpm run build
 
 # copy build output into final image
 FROM base AS release
