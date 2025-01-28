@@ -110,11 +110,11 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           declare -A SERVICES=(
-            ["waltid-issuer-api"]="IssuerContainer|NexionAiIacStackIssuerTaskDefinition4AF6EAF7|waltid-services/waltid-issuer-api/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
-            ["waltid-verifier-api"]="VerifierContainer|NexionAiIacStackVerifierTaskDefinition4228B84F|waltid-services/waltid-verifier-api/Dockerfile|NexionAiIacStack-VerifierServiceCD2CC6E9-UhMVd8ifZpvD"
-            ["waltid-wallet-api"]="WalletApiContainer|NexionAiIacStackWalletApiTaskDefinitionAD56EEDD|waltid-services/waltid-wallet-api/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
-            ["waltid-demo-wallet"]="WaltidDemoWalletContainer|NexionAiIacStackWaltidDemoWalletTaskDefinitionF3F49765|waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
-            ["waltid-web-portal"]="WaltidWebPortalContainer|NexionAiIacStackWaltidWebPortalTaskDefinitionCB8A832C|waltid-applications/waltid-web-portal/Dockerfile|NexionAiIacStack-WaltidWebPortaltService75F4E2F5-kZSulveJ6dvy"
+            ["waltid-issuer-api"]="IssuerContainer|NexionAiIacStackIssuerTaskDefinition4AF6EAF7|waltid-services/waltid-issuer-api/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
+            ["waltid-verifier-api"]="VerifierContainer|NexionAiIacStackVerifierTaskDefinition4228B84F|waltid-services/waltid-verifier-api/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-VerifierServiceCD2CC6E9-UhMVd8ifZpvD"
+            ["waltid-wallet-api"]="WalletApiContainer|NexionAiIacStackWalletApiTaskDefinitionAD56EEDD|waltid-services/waltid-wallet-api/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-WalletApiService43CA521A-YN4fIxAhYCcv"
+            ["waltid-demo-wallet"]="WaltidDemoWalletContainer|NexionAiIacStackWaltidDemoWalletTaskDefinitionF3F49765|waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-WaltidDemoWalletServiceA20610D0-nvqBzCKJAZtQ"
+            ["waltid-web-portal"]="WaltidWebPortalContainer|NexionAiIacStackWaltidWebPortalTaskDefinitionCB8A832C|waltid-applications/waltid-web-portal/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-WaltidWebPortaltService75F4E2F5-kZSulveJ6dvy"
           )
           
           for service in "${!SERVICES[@]}"; do
@@ -130,11 +130,11 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           declare -A SERVICES=(
-            ["waltid-issuer-api"]="IssuerContainer|NexionAiIacStackIssuerTaskDefinition4AF6EAF7|waltid-services/waltid-issuer-api/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
-            ["waltid-verifier-api"]="VerifierContainer|NexionAiIacStackVerifierTaskDefinition4228B84F|waltid-services/waltid-verifier-api/Dockerfile|NexionAiIacStack-VerifierServiceCD2CC6E9-UhMVd8ifZpvD"
-            ["waltid-wallet-api"]="WalletApiContainer|NexionAiIacStackWalletApiTaskDefinitionAD56EEDD|waltid-services/waltid-wallet-api/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
-            ["waltid-demo-wallet"]="WaltidDemoWalletContainer|NexionAiIacStackWaltidDemoWalletTaskDefinitionF3F49765|waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/Dockerfile|NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
-            ["waltid-web-portal"]="WaltidWebPortalContainer|NexionAiIacStackWaltidWebPortalTaskDefinitionCB8A832C|waltid-applications/waltid-web-portal/Dockerfile|NexionAiIacStack-WaltidWebPortaltService75F4E2F5-kZSulveJ6dvy"
+            ["waltid-issuer-api"]="IssuerContainer|NexionAiIacStackIssuerTaskDefinition4AF6EAF7|waltid-services/waltid-issuer-api/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-IssuerServiceA12C5401-MOLwTFpgCzkt"
+            ["waltid-verifier-api"]="VerifierContainer|NexionAiIacStackVerifierTaskDefinition4228B84F|waltid-services/waltid-verifier-api/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-VerifierServiceCD2CC6E9-UhMVd8ifZpvD"
+            ["waltid-wallet-api"]="WalletApiContainer|NexionAiIacStackWalletApiTaskDefinitionAD56EEDD|waltid-services/waltid-wallet-api/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-WalletApiService43CA521A-YN4fIxAhYCcv"
+            ["waltid-demo-wallet"]="WaltidDemoWalletContainer|NexionAiIacStackWaltidDemoWalletTaskDefinitionF3F49765|waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-WaltidDemoWalletServiceA20610D0-nvqBzCKJAZtQ"
+            ["waltid-web-portal"]="WaltidWebPortalContainer|NexionAiIacStackWaltidWebPortalTaskDefinitionCB8A832C|waltid-applications/waltid-web-portal/Dockerfile|arn:aws:ecs:us-east-1:160885258943:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-WaltidWebPortaltService75F4E2F5-kZSulveJ6dvy"
           )
           
           for service in "${!SERVICES[@]}"; do
