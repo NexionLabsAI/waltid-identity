@@ -147,20 +147,21 @@ jobs:
           
             # Update task definition
             jq --arg IMAGE "$ECR_REGISTRY/$service:$IMAGE_TAG" \
-               --arg NAME "$container_name" \
-               '{
-                  family: .family,
-                  taskRoleArn: .taskRoleArn,
-                  executionRoleArn: .executionRoleArn,
-                  networkMode: .networkMode,
-                  containerDefinitions: (.containerDefinitions | map(
-                    if .name == $NAME then . + {image: $IMAGE} else .
-                    end
-                  )),
-                  requiresCompatibilities: .requiresCompatibilities,
-                  cpu: .cpu,
-                  memory: .memory
-                }' \
+             --arg NAME "$container_name" \
+             '{
+                family: .family,
+                taskRoleArn: .taskRoleArn,
+                executionRoleArn: .executionRoleArn,
+                networkMode: .networkMode,
+                containerDefinitions: (.containerDefinitions | map(
+                  if .name == $NAME then . + {image: $IMAGE} else .
+                  end
+                )),
+                requiresCompatibilities: .requiresCompatibilities,
+                cpu: .cpu,
+                memory: .memory,
+                volumes: .volumes
+              }'\
                task-definition-$service.json > updated-task-definition-$service.json
           
             # Register new task definition
