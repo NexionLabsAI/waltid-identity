@@ -16,7 +16,6 @@ COPY waltid-applications/waltid-web-wallet/apps/waltid-demo-wallet/package.json 
 # Install dependencies
 RUN pnpm install
 
-# Now copy all source files
 COPY waltid-applications/waltid-web-wallet .
 
 # Ensure Nuxt dependencies are installed and build
