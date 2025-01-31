@@ -243,21 +243,36 @@ jobs:
             fi
             
             UPDATED_SERVICES+=($service)
-            
-            # Wait for service to stabilize
-            echo "Waiting for $service to stabilize..."
-            if ! aws ecs wait services-stable \
-              --cluster $ECS_CLUSTER \
-              --services "$service_name"; then
-              echo "Service $service failed to stabilize"
-              goto_rollback=1
-              break
-            fi
           done
-          
+
+          # Wait for all services to stabilize
+          if [ "${goto_rollback:-0}" -ne 1 ]; then
+            echo "Waiting for all services to stabilize..."
+            for service in "${UPDATED_SERVICES[@]}"; do
+              IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
+
+              echo "Checking stability for $service..."
+              if ! aws ecs wait services-stable \
+                --cluster $ECS_CLUSTER \
+                --services "$service_name"; then
+                echo "Service $service failed to stabilize"
+                goto_rollback=1
+                break
+              fi
+            done
+          fi
+
           # Rollback if needed
           if [ "${goto_rollback:-0}" -eq 1 ]; then
             echo "Deployment failed, rolling back updated services..."
             for service in "${UPDATED_SERVICES[@]}"; do
               IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
-              echo "Rolling back
+              echo "Rolling back $service..."
+              aws ecs update-service \
+                --cluster $ECS_CLUSTER \
+                --service "$service_name" \
+                --task-definition "${CURRENT_TASK_DEFS[$service]}" \
+                --force-new-deployment
+            done
+            exit 1
+          fi
