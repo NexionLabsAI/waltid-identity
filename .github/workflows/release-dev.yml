@@ -117,12 +117,39 @@ jobs:
             ["waltid-web-portal"]="WaltidWebPortalContainer|NexionAiIacStackWaltidWebPortalTaskDefinitionCB8A832C|waltid-applications/waltid-web-portal/Dockerfile|arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-WaltidWebPortaltService75F4E2F5-kZSulveJ6dvy"
           )
           
+          # Array to track successful builds
+          declare -a BUILT_SERVICES=()
+          
           for service in "${!SERVICES[@]}"; do
             IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
             echo "Building and pushing $service..."
             echo "Using Dockerfile: $dockerfile"
-            docker build -t $ECR_REGISTRY/$service:$IMAGE_TAG -f $dockerfile .
-            docker push $ECR_REGISTRY/$service:$IMAGE_TAG
+            
+            if ! docker build -t $ECR_REGISTRY/$service:$IMAGE_TAG -f $dockerfile .; then
+              echo "Failed to build $service"
+              # Clean up any successful builds
+              for built in "${BUILT_SERVICES[@]}"; do
+                echo "Removing pushed image for $built"
+                aws ecr batch-delete-image \
+                  --repository-name $built \
+                  --image-ids imageTag=$IMAGE_TAG
+              done
+              exit 1
+            fi
+            
+            if ! docker push $ECR_REGISTRY/$service:$IMAGE_TAG; then
+              echo "Failed to push $service"
+              # Clean up any successful builds
+              for built in "${BUILT_SERVICES[@]}"; do
+                echo "Removing pushed image for $built"
+                aws ecr batch-delete-image \
+                  --repository-name $built \
+                  --image-ids imageTag=$IMAGE_TAG
+              done
+              exit 1
+            fi
+            
+            BUILT_SERVICES+=($service)
           done
 
       - name: Update task definitions and services
@@ -137,16 +164,39 @@ jobs:
             ["waltid-web-portal"]="WaltidWebPortalContainer|NexionAiIacStackWaltidWebPortalTaskDefinitionCB8A832C|waltid-applications/waltid-web-portal/Dockerfile|arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:service/NexionAiIacStack-ServicesCluster3EE15C94-nf3Z7FKfOwlj/NexionAiIacStack-WaltidWebPortaltService75F4E2F5-kZSulveJ6dvy"
           )
           
+          # Download all task definitions first
+          echo "Downloading current task definitions..."
           for service in "${!SERVICES[@]}"; do
             IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
+            echo "Downloading task definition for $service..."
+            
+            if ! aws ecs describe-task-definition --task-definition $task_def \
+              --query taskDefinition > task-definition-$service.json; then
+              echo "Failed to download task definition for $service"
+              exit 1
+            fi
+          done
+
+          # Store current task definitions for rollback
+          declare -A CURRENT_TASK_DEFS=()
+          declare -a UPDATED_SERVICES=()
           
-            echo "Updating task definition for $service..."
-            # Download task definition
-            aws ecs describe-task-definition --task-definition $task_def \
-              --query taskDefinition > task-definition-$service.json
-          
+          # Get current task definitions
+          for service in "${!SERVICES[@]}"; do
+            IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
+            CURRENT_TASK_DEFS[$service]=$(aws ecs describe-services \
+              --cluster $ECS_CLUSTER \
+              --services "$service_name" \
+              --query 'services[0].taskDefinition' \
+              --output text)
+          done
+
+          # Update services
+          for service in "${!SERVICES[@]}"; do
+            IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
+            
             # Update task definition
-            jq --arg IMAGE "$ECR_REGISTRY/$service:$IMAGE_TAG" \
+            if ! jq --arg IMAGE "$ECR_REGISTRY/$service:$IMAGE_TAG" \
              --arg NAME "$container_name" \
              '{
                 family: .family,
@@ -161,21 +211,53 @@ jobs:
                 cpu: .cpu,
                 memory: .memory,
                 volumes: .volumes
-              }'\
-               task-definition-$service.json > updated-task-definition-$service.json
-          
+              }' \
+               task-definition-$service.json > updated-task-definition-$service.json; then
+              echo "Failed to update task definition JSON for $service"
+              goto_rollback=1
+              break
+            fi
+
             # Register new task definition
             echo "Registering new task definition for $service..."
             NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
               --cli-input-json file://updated-task-definition-$service.json \
               --query 'taskDefinition.taskDefinitionArn' \
               --output text)
-          
+            
+            if [ $? -ne 0 ]; then
+              echo "Failed to register task definition for $service"
+              goto_rollback=1
+              break
+            fi
+            
             # Update service
-            echo "Updating ECS service for $service..."
-            aws ecs update-service \
+            if ! aws ecs update-service \
               --cluster $ECS_CLUSTER \
               --service "$service_name" \
               --task-definition $NEW_TASK_DEF_ARN \
-              --force-new-deployment
+              --force-new-deployment; then
+              echo "Failed to update service for $service"
+              goto_rollback=1
+              break
+            fi
+            
+            UPDATED_SERVICES+=($service)
+            
+            # Wait for service to stabilize
+            echo "Waiting for $service to stabilize..."
+            if ! aws ecs wait services-stable \
+              --cluster $ECS_CLUSTER \
+              --services "$service_name"; then
+              echo "Service $service failed to stabilize"
+              goto_rollback=1
+              break
+            fi
           done
+          
+          # Rollback if needed
+          if [ "${goto_rollback:-0}" -eq 1 ]; then
+            echo "Deployment failed, rolling back updated services..."
+            for service in "${UPDATED_SERVICES[@]}"; do
+              IFS='|' read -r container_name task_def dockerfile service_name <<< "${SERVICES[$service]}"
+              echo "Rolling back
